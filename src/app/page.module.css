@@ -257,6 +257,62 @@
   flex-wrap: wrap;
 }
 
+/* Add these styles to your existing CSS file */
+
+.servoControl {
+  background-color: #f3f4f6;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.servoControl h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+.servoButtons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.servoButton {
+  padding: 8px 12px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.servoButton:hover {
+  background-color: #1d4ed8;
+}
+
+.servoButton:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.servoStatus {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin: 0;
+}
+
+.error {
+  color: #dc2626;
+  background-color: #fee2e2;
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
 /* Make sure buttons align properly on mobile */
 @media (max-width: 768px) {
   .tabsContainer {

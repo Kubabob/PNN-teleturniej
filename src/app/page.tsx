@@ -1,6 +1,40 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from './page.module.css';
+
+// Updated Web Serial API type declarations
+declare global {
+  interface SerialPortFilter {
+    usbVendorId?: number;
+    usbProductId?: number;
+  }
+
+  interface SerialPortRequestOptions {
+    filters?: SerialPortFilter[];
+  }
+
+  interface Navigator {
+    serial: {
+      requestPort: (options?: SerialPortRequestOptions) => Promise<SerialPort>;
+      getPorts: () => Promise<SerialPort[]>;
+    }
+  }
+
+  interface SerialPort {
+    open: (options: SerialOptions) => Promise<void>;
+    close: () => Promise<void>;
+    writable: WritableStream;
+  }
+
+  interface SerialOptions {
+    baudRate: number;
+    dataBits?: number;
+    stopBits?: number;
+    parity?: string;
+    bufferSize?: number;
+    flowControl?: string;
+  }
+}
 
 // Sample questions data - replace with your actual data
 const questionsData = [
@@ -38,17 +72,138 @@ export default function Home() {
   const [customQuestion, setCustomQuestion] = useState<string>("");
   const [activeTab, setActiveTab] = useState<'predefined' | 'custom'>('predefined');
 
+  // Servo control states
+  const [port, setPort] = useState<SerialPort | null>(null);
+  const [writer, setWriter] = useState<WritableStreamDefaultWriter | null>(null);
+  const [isServoConnected, setIsServoConnected] = useState(false);
+  const [servoPosition, setServoPosition] = useState(0);
+  const [servoError, setServoError] = useState<string | null>(null);
 
   // Get the selected question object
   const currentQuestion = selectedQuestion
     ? questionsData.find(q => q.id === selectedQuestion)
     : null;
 
+  // Servo control functions
+  async function connectToArduino() {
+    if (!navigator.serial) {
+      setServoError("Web Serial API not supported in this browser. Try Chrome or Edge.");
+      return;
+    }
+
+    try {
+      // Request port access
+      const selectedPort = await navigator.serial.requestPort();
+      await selectedPort.open({ baudRate: 9600 });
+
+      const outputStream = selectedPort.writable;
+      const writer = outputStream.getWriter();
+
+      setPort(selectedPort);
+      setWriter(writer);
+      setIsServoConnected(true);
+      setServoError(null);
+
+      console.log("Connected to Arduino!");
+
+      // Initialize servo to 0 degrees
+      sendServoPosition(0);
+    } catch (error) {
+      console.error("Error connecting to Arduino:", error);
+      setServoError(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async function disconnectFromArduino() {
+    try {
+      // First release the writer
+      if (writer) {
+        try {
+          // Reset servo to 0 before disconnecting
+          const encoder = new TextEncoder();
+          await writer.write(encoder.encode("S0\n"));
+        } catch (e) {
+          console.warn("Could not send final position command", e);
+        }
+
+        writer.releaseLock();
+      }
+
+      // Then close the port
+      if (port) {
+        await port.close();
+      }
+
+      setPort(null);
+      setWriter(null);
+      setIsServoConnected(false);
+      setServoError(null);
+      console.log("Disconnected from Arduino");
+    } catch (error) {
+      console.error("Error during disconnection:", error);
+      setServoError("Failed to disconnect properly. You may need to refresh the page.");
+    }
+  }
+
+  const sendServoPosition = useCallback(async (position: number) => {
+    if (!writer || !isServoConnected) return;
+
+    // Convert position to a string command ending with newline
+    const command = `S${position}\n`;
+
+    // Convert string to Uint8Array
+    const encoder = new TextEncoder();
+    const data = encoder.encode(command);
+
+    try {
+      await writer.write(data);
+      setServoPosition(position);
+      console.log(`Sent position: ${position}`);
+    } catch (error) {
+      console.error("Error sending command:", error);
+      setServoError(`Failed to send command: ${error instanceof Error ? error.message : String(error)}`);
+      setIsServoConnected(false);
+    }
+  }, [writer, isServoConnected]);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (isServoConnected && writer && port) {
+        try {
+          writer.releaseLock();
+          port.close().catch(e => console.warn("Error closing port on unmount:", e));
+        } catch (e) {
+          console.warn("Error during cleanup:", e);
+        }
+      }
+    };
+  }, [isServoConnected, writer, port]);
+
+  // Move servo to 0 when question changes
+  useEffect(() => {
+    if (selectedQuestion && isServoConnected) {
+      sendServoPosition(0);
+    }
+  }, [selectedQuestion, isServoConnected, sendServoPosition]);
+
+  // Move servo to 90 when API response is received
+  useEffect(() => {
+    if (apiOutput && !isLoading && isServoConnected) {
+      sendServoPosition(90);
+    }
+  }, [apiOutput, isLoading, isServoConnected, sendServoPosition]);
+
   const randomQuestion = () => {
-      const idx = Math.floor(Math.random() * questionsData.length);
-      const q = questionsData[idx];
-      setSelectedQuestion(q?.id ?? null);
-      setApiOutput('');
+    const idx = Math.floor(Math.random() * questionsData.length);
+    const q = questionsData[idx];
+    setSelectedQuestion(q?.id ?? null);
+    setApiOutput('');
+
+    // Reset servo when question changes
+    if (isServoConnected) {
+      sendServoPosition(0);
+    }
   };
 
   const handleSendRequest = async (questionText?: string) => {
@@ -75,7 +230,13 @@ export default function Home() {
       });
 
       const data = await response.json();
-      setApiOutput(data.choices?.[0]?.message?.content || "Brak odpowiedzi od API");
+      const responseText = data.choices?.[0]?.message?.content || "Brak odpowiedzi od API";
+      setApiOutput(responseText);
+
+      // Move servo to 90 degrees when we get a response
+      if (isServoConnected) {
+        sendServoPosition(90);
+      }
     } catch (error) {
       setApiOutput(`Error: ${error instanceof Error ? error.message : 'Nieznany Error'}`);
     } finally {
@@ -92,6 +253,41 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
+      <div className={styles.servoControl}>
+        <h3>Kontrola Serwomechanizmu</h3>
+        {servoError && <p className={styles.error}>{servoError}</p>}
+
+        <div className={styles.servoButtons}>
+          {!isServoConnected ? (
+            <button
+              onClick={connectToArduino}
+              className={styles.servoButton}
+            >
+              Połącz z Arduino
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={disconnectFromArduino}
+                className={styles.servoButton}
+              >
+                Rozłącz Arduino
+              </button>
+              <button
+                onClick={() => sendServoPosition(0)}
+                className={styles.servoButton}
+              >
+                Reset Servo (0°)
+              </button>
+            </>
+          )}
+        </div>
+
+        <p className={styles.servoStatus}>
+          Status: {isServoConnected ? `Połączono (Pozycja: ${servoPosition}°)` : 'Rozłączono'}
+        </p>
+      </div>
+
       <div className={styles.outputSection}>
         {isLoading ? (
           <p>Ładowanie...</p>
@@ -129,7 +325,10 @@ export default function Home() {
             </button>
             <select
               value={selectedQuestion || ''}
-              onChange={(e) => setSelectedQuestion(Number(e.target.value) || null)}
+              onChange={(e) => {
+                setSelectedQuestion(Number(e.target.value) || null);
+                setApiOutput('');
+              }}
               className={styles.questionSelect}
             >
               <option value="">Wybierz pytanie</option>
