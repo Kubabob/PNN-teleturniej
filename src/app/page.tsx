@@ -1,103 +1,180 @@
-import Image from "next/image";
+'use client';
+import { useState, useEffect } from 'react';
+import styles from './page.module.css';
+
+// Sample questions data - replace with your actual data
+const questionsData = [
+  { id: 1, question: "Jaki jest największy ssak lądowy?", correctAnswer: "" },
+  { id: 2, question: "Jakie kolory są we fladze Polski?", correctAnswer: "" },
+  { id: 3, question: "Ile kątów ma trójkąt?", correctAnswer: "3" },
+  { id: 4, question: "Ile godzin trwa dzień?", correctAnswer: "24" },
+  { id: 5, question: "Co jest przeciwieństwem nocy?", correctAnswer: "dzień" },
+  { id: 6, question: 'Dlaczego Ziemia jest "niebieską planetą"?', correctAnswer: "" },
+  { id: 7, question: "Ile palców ma standardowy człowiek?", correctAnswer: "20" },
+  { id: 8, question: 'Po co nam nos?', correctAnswer: 'Aby móc oddychać.'},
+  { id: 9, question: 'Jakiego koloru jest mleko?', correctAnswer: 'Zazwyczaj białego'},
+  { id: 10, question: 'Jakiego koloru jest śnieg?', correctAnswer: 'Zazwyczaj białego'},
+  { id: 11, question: 'Ile mamy znaków zodiaku?', correctAnswer: '12'},
+  { id: 12, question: 'Z czego pada deszcz?', correctAnswer: 'Z chmur'},
+  { id: 13, question: 'Jakiego koloru zazwyczaj są chipsy?', correctAnswer: 'Żółty/pomarańczowy'},
+  { id: 14, question: 'Co jest przeciwieństwem dnia?', correctAnswer: 'Noc'},
+  { id: 15, question: 'Ile kątów ma kwadrat?', correctAnswer: '4'},
+  { id: 16, question: 'Ile mamy planet w Układzie Słonecznym?', correctAnswer: '8'},
+  { id: 17, question: 'Jaki kształt ma pizza?', correctAnswer: 'Okrągły'},
+  { id: 18, question: 'Co jest czarno-białe i daje mleko?', correctAnswer: 'Krowa'},
+  { id: 19, question: 'Jakie zwierzę robi "miau"?', correctAnswer: 'Kot'},
+  { id: 20, question: 'Ile to tuzin?', correctAnswer: '12'},
+  { id: 21, question: 'Jaki kolor ma trawa?', correctAnswer: 'Zielony'},
+  { id: 22, question: 'Co jest zawsze na powierzchni morza/oceanu?', correctAnswer: 'Fale'},
+  { id: 23, question: 'Jakie są 4 kierunki świata?', correctAnswer: 'Północ, południe, wschód, zachód'},
+  { id: 24, question: 'Ile samochód ma kół', correctAnswer: '4/5'},
+  { id: 25, question: "Jakiego koloru jest niebo?", correctAnswer: "" },
+];
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [apiOutput, setApiOutput] = useState<string>("");
+  const [selectedQuestion, setSelectedQuestion] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [customQuestion, setCustomQuestion] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<'predefined' | 'custom'>('predefined');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+  // Get the selected question object
+  const currentQuestion = selectedQuestion
+    ? questionsData.find(q => q.id === selectedQuestion)
+    : null;
+
+  const randomQuestion = () => {
+      const idx = Math.floor(Math.random() * questionsData.length);
+      const q = questionsData[idx];
+      setSelectedQuestion(q?.id ?? null);
+      setApiOutput('');
+  };
+
+  const handleSendRequest = async (questionText?: string) => {
+    if (!questionText && !currentQuestion) return;
+
+    const questionToSend = questionText || currentQuestion?.question;
+
+    setIsLoading(true);
+    try {
+      // Replace with your actual API call
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY || ''}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: "Bierzesz udział w teleturnieju. Dostaniesz pytanie na które musisz szybko odpowiedzieć." },
+            { role: "user", content: questionToSend }
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      setApiOutput(data.choices?.[0]?.message?.content || "Brak odpowiedzi od API");
+    } catch (error) {
+      setApiOutput(`Error: ${error instanceof Error ? error.message : 'Nieznany Error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCustomQuestionSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (customQuestion.trim()) {
+      handleSendRequest(customQuestion);
+    }
+  };
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.outputSection}>
+        {isLoading ? (
+          <p>Ładowanie...</p>
+        ) : (
+          <div className={styles.apiOutput}>
+            {apiOutput || "Odpowiedź API pojawi się tutaj"}
+          </div>
+        )}
+      </div>
+
+      <div className={styles.tabsContainer}>
+        <button
+          className={`${styles.tabButton} ${activeTab === 'predefined' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('predefined')}
+        >
+          Gotowe pytania
+        </button>
+        <button
+          className={`${styles.tabButton} ${activeTab === 'custom' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('custom')}
+        >
+          Własne pytanie
+        </button>
+      </div>
+
+      {activeTab === 'predefined' ? (
+        <div className={styles.controlSection}>
+          <div className={styles.selectContainer}>
+            <button
+              onClick={randomQuestion}
+              disabled={isLoading}
+              className={styles.sendButton}
+            >
+              Losuj pytanie
+            </button>
+            <select
+              value={selectedQuestion || ''}
+              onChange={(e) => setSelectedQuestion(Number(e.target.value) || null)}
+              className={styles.questionSelect}
+            >
+              <option value="">Wybierz pytanie</option>
+              {questionsData.map(q => (
+                <option key={q.id} value={q.id}>
+                  {q.id}: {q.question}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={() => handleSendRequest()}
+            disabled={!selectedQuestion || isLoading}
+            className={styles.sendButton}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Wyślij zapytanie
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      ) : (
+        <form onSubmit={handleCustomQuestionSubmit} className={styles.customQuestionForm}>
+          <textarea
+            value={customQuestion}
+            onChange={(e) => setCustomQuestion(e.target.value)}
+            placeholder="Wpisz swoje pytanie tutaj..."
+            className={styles.customQuestionInput}
+            rows={4}
+            disabled={isLoading}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <button
+            type="submit"
+            disabled={!customQuestion.trim() || isLoading}
+            className={styles.sendButton}
+          >
+            Wyślij własne pytanie
+          </button>
+        </form>
+      )}
+
+      {currentQuestion && activeTab === 'predefined' && (
+        <details className={styles.answerSection}>
+          <summary>Poprawna odpowiedź:</summary>
+          <p>{currentQuestion.correctAnswer}</p>
+        </details>
+      )}
     </div>
   );
 }

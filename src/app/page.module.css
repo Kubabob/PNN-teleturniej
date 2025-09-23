@@ -1,0 +1,270 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  min-height: 100vh;
+  max-width: 1000px;
+  margin: 0 auto;
+  color: #e0e0ff;
+  background: linear-gradient(135deg, #13151a 0%, #181a20 100%);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.outputSection {
+  width: 100%;
+  min-height: 220px;
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.apiOutput {
+  background-color: rgba(30, 32, 40, 0.6);
+  padding: 1.8rem;
+  border-radius: 12px;
+  width: 100%;
+  min-height: 180px;
+  border: 1px solid rgba(125, 137, 255, 0.2);
+  white-space: pre-wrap;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  color: #e0e0ff;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.apiOutput:empty::before {
+  content: "Odpowiedź API pojawi się tutaj";
+  color: #6f7388;
+  font-style: italic;
+}
+
+.controlSection {
+  display: flex;
+  width: 100%;
+  margin-bottom: 2.5rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.selectContainer {
+  flex: 1;
+  display: flex;
+  gap: 1rem;
+  min-width: 300px;
+}
+
+.questionSelect {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(125, 137, 255, 0.3);
+  font-size: 1rem;
+  background-color: rgba(20, 22, 30, 0.8);
+  color: #e0e0ff;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236f7388' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.questionSelect:focus {
+  outline: none;
+  border-color: rgba(125, 137, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(125, 137, 255, 0.2);
+}
+
+.questionSelect option {
+  background-color: #181a20;
+  color: #e0e0ff;
+}
+
+.sendButton {
+  padding: 0.85rem 1.8rem;
+  background: linear-gradient(135deg, #4f56ff 0%, #2b31e0 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(79, 86, 255, 0.3);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.sendButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(79, 86, 255, 0.4);
+  background: linear-gradient(135deg, #5d64ff 0%, #3940f8 100%);
+}
+
+.sendButton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.sendButton:disabled {
+  background: linear-gradient(135deg, #2c2f42 0%, #23253a 100%);
+  color: #6f7388;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.answerSection {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 1.5rem;
+  background-color: rgba(30, 32, 40, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(125, 137, 255, 0.2);
+  color: #e0e0ff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.answerSection summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #a3a8ff;
+  user-select: none;
+  padding: 0.5rem 0;
+  position: relative;
+}
+
+.answerSection summary:focus {
+  outline: none;
+}
+
+.answerSection summary:hover {
+  color: #c8caff;
+}
+
+.answerSection p {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(125, 137, 255, 0.15);
+  color: #e0e0ff;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+/* Add global styles to the root layout if not already present */
+:global(:root) {
+  --background: #13151a;
+  --foreground: #e0e0ff;
+}
+
+:global(body) {
+  background: var(--background);
+  color: var(--foreground);
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* New styles for tabs and custom question form */
+.tabsContainer {
+  display: flex;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(125, 137, 255, 0.2);
+}
+
+.tabButton {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--muted, #6f7388);
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-right: 1rem;
+}
+
+.tabButton:hover {
+  color: var(--foreground, #e0e0ff);
+}
+
+.activeTab {
+  color: var(--primary, #4f56ff);
+  border-bottom: 2px solid var(--primary, #4f56ff);
+}
+
+.customQuestionForm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.customQuestionInput {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: rgba(30, 32, 40, 0.6);
+  color: var(--foreground, #e0e0ff);
+  border: 1px solid rgba(125, 137, 255, 0.2);
+  resize: vertical;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  transition: all 0.3s ease;
+}
+
+.customQuestionInput:focus {
+  outline: none;
+  border-color: var(--primary, #4f56ff);
+  box-shadow: 0 0 0 3px rgba(125, 137, 255, 0.2);
+}
+
+/* Ensure existing styles work with the new layout */
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  min-height: 100vh;
+  max-width: 1000px;
+  margin: 0 auto;
+  color: #e0e0ff;
+  background: linear-gradient(135deg, #13151a 0%, #181a20 100%);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.outputSection {
+  width: 100%;
+  min-height: 220px;
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.controlSection {
+  display: flex;
+  width: 100%;
+  margin-bottom: 2.5rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Make sure buttons align properly on mobile */
+@media (max-width: 768px) {
+  .tabsContainer {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .customQuestionForm {
+    flex-direction: column;
+  }
+}
