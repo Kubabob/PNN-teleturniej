@@ -72,11 +72,14 @@ export default function Home() {
   const [customQuestion, setCustomQuestion] = useState<string>("");
   const [activeTab, setActiveTab] = useState<'predefined' | 'custom'>('predefined');
 
+  const upPosition = 90;
+  const downPosition = 0;
+
   // Servo control states
   const [port, setPort] = useState<SerialPort | null>(null);
   const [writer, setWriter] = useState<WritableStreamDefaultWriter | null>(null);
   const [isServoConnected, setIsServoConnected] = useState(false);
-  const [servoPosition, setServoPosition] = useState(0);
+  const [servoPosition, setServoPosition] = useState(upPosition);
   const [servoError, setServoError] = useState<string | null>(null);
 
   // Get the selected question object
@@ -107,7 +110,7 @@ export default function Home() {
       console.log("Connected to Arduino!");
 
       // Initialize servo to 0 degrees
-      sendServoPosition(0);
+      sendServoPosition(upPosition);
     } catch (error) {
       console.error("Error connecting to Arduino:", error);
       setServoError(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
@@ -119,9 +122,9 @@ export default function Home() {
       // First release the writer
       if (writer) {
         try {
-          // Reset servo to 0 before disconnecting
+          // Reset servo to 90 before disconnecting
           const encoder = new TextEncoder();
-          await writer.write(encoder.encode("S0\n"));
+          await writer.write(encoder.encode(`S${upPosition}\n`));
         } catch (e) {
           console.warn("Could not send final position command", e);
         }
@@ -180,17 +183,17 @@ export default function Home() {
     };
   }, [isServoConnected, writer, port]);
 
-  // Move servo to 0 when question changes
+  // Move servo to 90 when question changes
   useEffect(() => {
     if (selectedQuestion && isServoConnected) {
-      sendServoPosition(0);
+      sendServoPosition(upPosition);
     }
   }, [selectedQuestion, isServoConnected, sendServoPosition]);
 
-  // Move servo to 90 when API response is received
+  // Move servo to 0 when API response is received
   useEffect(() => {
     if (apiOutput && !isLoading && isServoConnected) {
-      sendServoPosition(90);
+      sendServoPosition(downPosition);
     }
   }, [apiOutput, isLoading, isServoConnected, sendServoPosition]);
 
@@ -202,7 +205,7 @@ export default function Home() {
 
     // Reset servo when question changes
     if (isServoConnected) {
-      sendServoPosition(0);
+      sendServoPosition(upPosition);
     }
   };
 
@@ -233,9 +236,9 @@ export default function Home() {
       const responseText = data.choices?.[0]?.message?.content || "Brak odpowiedzi od API";
       setApiOutput(responseText);
 
-      // Move servo to 90 degrees when we get a response
+      // Move servo to 0 degrees when we get a response
       if (isServoConnected) {
-        sendServoPosition(90);
+        sendServoPosition(downPosition);
       }
     } catch (error) {
       setApiOutput(`Error: ${error instanceof Error ? error.message : 'Nieznany Error'}`);
@@ -274,10 +277,10 @@ export default function Home() {
                 Rozłącz Arduino
               </button>
               <button
-                onClick={() => sendServoPosition(0)}
+                onClick={() => sendServoPosition(upPosition)}
                 className={styles.servoButton}
               >
-                Reset Servo (0°)
+                {`Reset Servo (${upPosition})`}
               </button>
             </>
           )}

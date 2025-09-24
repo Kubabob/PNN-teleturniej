@@ -1,166 +1,126 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Slider, Typography, Box, Paper, Alert } from '@mui/material';
-
-// Add Web Serial API type declarations
-declare global {
-  interface Navigator {
-    serial: {
-      requestPort: (options?: SerialPortRequestOptions) => Promise<SerialPort>;
-      getPorts: () => Promise<SerialPort[]>;
-    };
-  }
-}
 
 export default function ServoControl() {
   const [port, setPort] = useState<SerialPort | null>(null);
   const [writer, setWriter] = useState<WritableStreamDefaultWriter | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [servoPosition, setServoPosition] = useState(90);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [servoPosition, setServoPosition] = useState<number>(90);
   const [error, setError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // Improved disconnect function
-  async function disconnectFromArduino() {
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      // First release the writer
-      if (writer) {
-        // Send a reset command to the servo to put it in a safe position
-        try {
-          const encoder = new TextEncoder();
-          await writer.write(encoder.encode("S90\n")); // Move to center position
-        } catch (e) {
-          console.warn("Could not send final position command", e);
-        }
-
-        writer.releaseLock();
-        setWriter(null);
-      }
-
-      // Then close the port
-      if (port) {
-        await port.close().catch(e => {
-          console.error("Error closing port:", e);
-          throw e;
-        });
-      }
-
-      setPort(null);
-      setIsConnected(false);
-      console.log("Disconnected from Arduino");
-    } catch (error) {
-      console.error("Error during disconnection:", error);
-      setError("Failed to disconnect properly. You may need to refresh the page.");
-    } finally {
-      setIsProcessing(false);
-    }
-  }
-
-  // Reset connection if it gets stuck
-  const resetConnection = useCallback(() => {
-    setWriter(null);
-    setPort(null);
-    setIsConnected(false);
-    setError(null);
-    console.log("Connection reset");
-  }, []);
-
-  // Improved connect function
+  // Connect to Arduino
   async function connectToArduino() {
     if (!navigator.serial) {
       setError("Web Serial API not supported in this browser. Try Chrome or Edge.");
       return;
     }
 
-    setIsProcessing(true);
-    setError(null);
-
+    setLoading(true);
     try {
       // Request port access
       const selectedPort = await navigator.serial.requestPort();
       await selectedPort.open({ baudRate: 9600 });
 
-      const outputStream = selectedPort.writable;
-      const writer = outputStream.getWriter();
+      // Get a writer to send commands
+      const writer = selectedPort.writable.getWriter();
 
+      // Store connection info in state
       setPort(selectedPort);
       setWriter(writer);
       setIsConnected(true);
-
-      console.log("Connected to Arduino!");
+      setError(null);
     } catch (error) {
       console.error("Error connecting to Arduino:", error);
       setError(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
-      setIsConnected(false);
     } finally {
-      setIsProcessing(false);
+      setLoading(false);
     }
   }
 
-  // Debounced servo position sending with rate limiting
-  const [lastCommandTime, setLastCommandTime] = useState(0);
-  const COMMAND_DELAY_MS = 50; // Minimum time between commands
+  // Disconnect from Arduino
+  async function disconnectFromArduino() {
+    setLoading(true);
+    try {
+      // First release the writer
+      if (writer) {
+        writer.releaseLock();
+      }
 
-  async function sendServoPosition(position: number) {
-    if (!writer || !isConnected) return;
+      // Then close the port
+      if (port) {
+        await port.close();
+      }
 
-    const now = Date.now();
-    if (now - lastCommandTime < COMMAND_DELAY_MS) {
-      // Too soon after last command, schedule it
-      setTimeout(() => {
-        sendServoPosition(position);
-      }, COMMAND_DELAY_MS - (now - lastCommandTime));
-      return;
+      // Reset state
+      setPort(null);
+      setWriter(null);
+      setIsConnected(false);
+      setError(null);
+    } catch (error) {
+      console.error("Error disconnecting:", error);
+      setError(`Failed to disconnect: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Reset connection if it gets stuck
+  function resetConnection() {
+    if (writer) {
+      try {
+        writer.releaseLock();
+      } catch (e) {
+        console.warn("Error releasing writer:", e);
+      }
     }
 
-    setLastCommandTime(now);
-    setIsProcessing(true);
+    setPort(null);
+    setWriter(null);
+    setIsConnected(false);
+    setError(null);
+    console.log("Connection reset");
+  }
 
-    // Convert position to a string command ending with newline
-    const command = `S${position}\n`;
-
-    // Convert string to Uint8Array
-    const encoder = new TextEncoder();
-    const data = encoder.encode(command);
+  // Send position command to Arduino
+  async function sendPosition(position: number) {
+    if (!writer || !isConnected) return;
 
     try {
-      await writer.write(data);
+      // Update state
+      setServoPosition(position);
+
+      // Create the command string
+      const command = `S${position}\n`;
+
+      // Convert to bytes and send
+      const encoder = new TextEncoder();
+      await writer.write(encoder.encode(command));
+
       console.log(`Sent position: ${position}`);
     } catch (error) {
       console.error("Error sending command:", error);
       setError(`Failed to send command: ${error instanceof Error ? error.message : String(error)}`);
-      // If we can't send commands, we're probably disconnected
-      setIsConnected(false);
-    } finally {
-      setIsProcessing(false);
     }
   }
 
-  // Cleanup on component unmount
+  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (isConnected && writer && port) {
-        // Try to clean up on unmount
-        try {
-          writer.releaseLock();
-          port.close().catch(e => console.warn("Error closing port on unmount:", e));
-        } catch (e) {
-          console.warn("Error during cleanup:", e);
-        }
+        writer.releaseLock();
+        port.close().catch(e => console.warn("Error closing port on unmount:", e));
       }
     };
   }, [isConnected, writer, port]);
 
-  // Debounced slider change handler
-//   const handleSliderChange = useCallback((_event: Event, newValue: number | number[]) => {
-//     const position = newValue as number;
-//     setServoPosition(position);
-//     sendServoPosition(position);
-//   }, []);
+  // Handle slider change
+  function handleSliderChange(event: Event, newValue: number | number[]) {
+    const position = newValue as number;
+    sendPosition(position);
+  }
 
   return (
     <div className="container mx-auto p-6">
@@ -190,7 +150,7 @@ export default function ServoControl() {
                 variant="contained"
                 color="primary"
                 onClick={connectToArduino}
-                disabled={isProcessing}
+                disabled={loading}
               >
                 Connect to Arduino
               </Button>
@@ -199,7 +159,7 @@ export default function ServoControl() {
                 variant="contained"
                 color="secondary"
                 onClick={disconnectFromArduino}
-                disabled={isProcessing}
+                disabled={loading}
               >
                 Disconnect
               </Button>
@@ -209,7 +169,7 @@ export default function ServoControl() {
               variant="outlined"
               color="warning"
               onClick={resetConnection}
-              disabled={isProcessing}
+              disabled={loading}
             >
               Reset Connection
             </Button>
@@ -217,7 +177,7 @@ export default function ServoControl() {
 
           <Typography>
             Status: {isConnected ? "Connected" : "Disconnected"}
-            {isProcessing && " (Processing...)"}
+            {loading && " (Working...)"}
           </Typography>
         </Box>
       </Paper>
@@ -226,37 +186,34 @@ export default function ServoControl() {
         <Box className="flex flex-col items-center">
           <Typography variant="h6" className="mb-4">Servo Control</Typography>
 
-          {/* <Box className="w-full max-w-md px-4 mb-2">
+          <Box className="w-full max-w-md px-4 mb-4">
             <Slider
               value={servoPosition}
               min={0}
-              max={120}
+              max={180}
               step={1}
               onChange={handleSliderChange}
-              disabled={!isConnected || isProcessing}
+              disabled={!isConnected || loading}
               valueLabelDisplay="on"
-              aria-labelledby="servo-position-slider"
+              aria-label="Servo position"
             />
-          </Box> */}
+          </Box>
 
-          <Box className="flex gap-4 mt-2">
-            {[0, 30, 60, 90, 120].map(pos => (
+          <Box className="flex flex-wrap gap-2 justify-center">
+            {[0, 45, 90, 135, 180].map((pos) => (
               <Button
                 key={pos}
                 variant="outlined"
-                onClick={() => {
-                  setServoPosition(pos);
-                  sendServoPosition(pos);
-                }}
-                disabled={!isConnected || isProcessing}
+                onClick={() => sendPosition(pos)}
+                disabled={!isConnected || loading}
               >
                 {pos}°
               </Button>
             ))}
           </Box>
 
-          <Typography className="mt-2">
-            Position: {servoPosition}° (0-120°)
+          <Typography className="mt-4">
+            Current position: {servoPosition}°
           </Typography>
         </Box>
       </Paper>
@@ -266,7 +223,7 @@ export default function ServoControl() {
           Note: Make sure your Arduino has the following code uploaded:
         </Typography>
         <pre className="bg-gray-100 p-2 mt-1 text-xs overflow-auto">
-          {`#include <Servo.h>
+{`#include <Servo.h>
 Servo myservo;
 String inputString = "";
 boolean stringComplete = false;
