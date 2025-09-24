@@ -63,6 +63,7 @@ const questionsData = [
   { id: 23, question: 'Jakie są 4 kierunki świata?', correctAnswer: 'Północ, południe, wschód, zachód'},
   { id: 24, question: 'Ile samochód ma kół', correctAnswer: '4/5'},
   { id: 25, question: "Jakiego koloru jest niebo?", correctAnswer: "" },
+  { id: 26, question: 'Więcej niż jedno zwierzę to?', correctAnswer: 'Lamy'},
 ];
 
 export default function Home() {
@@ -224,7 +225,7 @@ export default function Home() {
           'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY || ''}`,
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model: "gpt-4o-mini",
           messages: [
             { role: "system", content: "Bierzesz udział w teleturnieju. Dostaniesz pytanie na które musisz szybko odpowiedzieć." },
             { role: "user", content: questionToSend }
